@@ -83,7 +83,8 @@ void wifiOnConnect(){
     u8x8.print("IP is:");
     u8x8.setCursor(0, 2);
     u8x8.print(WiFi.localIP());
-    delay(500);
+    delay(1000);
+    u8x8.clear();
 }
 
 void wifiOnDisconnect(){
@@ -121,6 +122,7 @@ void wifiConnectedLoop(){
     digitalWrite(25, HIGH);
     unsigned long epoch = timeClient.getEpochTime();
     Serial.print("");
+    
     // format time to readable format from epoch
     time_t utcCalc = epoch ;
     unsigned long cyear = year(utcCalc );
@@ -130,7 +132,14 @@ void wifiConnectedLoop(){
     unsigned long cminute = minute(utcCalc );
     unsigned long csecond = second(utcCalc );
     Serial.printf("Current Time: %04lu-%02lu-%02lu %02lu:%02lu:%02lu\n", cyear,cmonth,cday,chour,cminute,csecond);
-    // get data from node over HTTP
+    
+    // get Yggdrasil data from node over HTTP
+    // clear screen and print Yggdrasil peers
+    u8x8.clear();
+    u8x8.setCursor(0, 0);
+    u8x8.printf("Yggdrasil Peers");
+    delay(500);
+    
     // object of class HTTPClient
     Serial.println("Starting HTTPClient http");
     HTTPClient http;
@@ -138,39 +147,88 @@ void wifiConnectedLoop(){
     http.begin(yurl);
     Serial.println("http.GET");
     int httpCode = http.GET();
-
+    int ycount=0;
+    int line=0;
+    
     //Check the returning code                                                                  
     if (httpCode > 0) {
       // Get the request response payload
       String ydata = http.getString();
-      // Parsing
+      
       // output RAW data
       Serial.println("RAW DATA");
       Serial.println(ydata);
-      const size_t bufferSize = JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(8) + 370;
-      DynamicJsonBuffer jsonBuffer(bufferSize);
-      JsonObject& root = jsonBuffer.parseObject(ydata);
-      // Parameters
-      const char* peer = root["peers"]; // peer
-      const char* endpoint = root["endpoint"]; // endpoint
-      const char* uptime = root["uptime"]; // uptime
-      // Output to serial monitor
-      Serial.print("Peer:");
-      Serial.println(peer);
-      Serial.print("Endpoint:");
-      Serial.println(endpoint);
-      Serial.print("Uptime:"); 
-      Serial.println(uptime);
-      
+
+      // Parsing
+      StaticJsonDocument<5000> doc;
+      DeserializationError error = deserializeJson(doc, ydata);
+      if (error) {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.c_str());
+        return;
+      }
+
+      JsonObject obj=doc["peers"].as<JsonObject>();
+      for (JsonObject::iterator it=obj.begin(); it!=obj.end(); ++it) {
+        ycount++;
+        line++;
+        Serial.print("Peer: ");
+        Serial.print(it->key().c_str());
+        Serial.print(" Endpoint ");
+        const char* endpoint = doc["peers"][it->key()]["endpoint"];
+        Serial.print(endpoint);
+        Serial.print(" Uptime ");
+        const int uptime = doc["peers"][it->key()]["uptime"]; // uptime
+        Serial.println(uptime);
+
+        // output stuff to the screen 
+        char *yspeer = strrchr(it->key().c_str(), ':');
+        if (yspeer != NULL) {
+          if (line <= 7){
+            Serial.printf("line %d %d %s\n",line,ycount,yspeer+1);
+            u8x8.clearLine(line);
+            u8x8.setCursor(0, line);
+            u8x8.printf("%s\n",yspeer+1);
+          }
+          else {
+            delay(2000);
+            u8x8.clearLine(1);
+            u8x8.clearLine(2);
+            u8x8.clearLine(3);
+            u8x8.clearLine(4);
+            u8x8.clearLine(5);
+            u8x8.clearLine(6);
+            u8x8.clearLine(7);
+            line=1;
+            Serial.printf("line %d %d %s\n",line,ycount,yspeer+1);
+            u8x8.setCursor(0, line);
+            u8x8.printf("%s\n",yspeer+1);
+          }
+        }
+      }
     }
     //Close connection
     http.end();
+    delay(2000);
+
     
     // output stuff to screen
     //u8x8.clear();
-    u8x8.clearLine(0);
-    u8x8.setCursor(0, 0);
-    u8x8.print("");
+    //u8x8.clearLine(0);
+    //u8x8.setCursor(0, 0);
+    //u8x8.printf("%04lu-%02lu-%02lu\n%02lu:%02lu:%02lu\n", cyear,cmonth,cday,chour,cminute,csecond);
+    // output ygg peers to screen
+    /*
+    for (int i = 0; i <= ycount; i++) {
+      const char* arr_ypeer[i];
+      Serial.println(arr_ypeer[i]);
+      char *yspeer = strrchr(arr_ypeer[i], ':');
+      if (yspeer != NULL) {
+        Serial.printf("%d %s\n",i,yspeer+1);
+      }
+    }
+    */
+    /*
     u8x8.clearLine(1);
     u8x8.setCursor(0, 1);
     u8x8.print("");
@@ -192,6 +250,7 @@ void wifiConnectedLoop(){
     u8x8.clearLine(7);
     u8x8.setCursor(0, 7);
     u8x8.print("");
+    */
 
     // turn LED off to indicate end of the loop
     digitalWrite(25, LOW);
