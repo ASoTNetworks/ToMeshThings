@@ -1,0 +1,25 @@
+#!/bin/bash
+# Copy this file to /var/www/html/cgi-bin/ on your ToMesh node.
+
+printf "Content-type: text/html#Content-type: text/html\n\n"
+
+read -a peers <<< `nodejs /opt/cjdns/tools/peerStats 2>/dev/null | awk '{ if ($3 == "ESTABLISHED") print $2 }' | awk -F. '{ print $6".k" }' | xargs`
+
+tpeers=${#peers[@]}
+peercount=1
+echo "{"
+echo "\"peers\":{"
+for peer in "${peers[@]}"; do
+	ipv6address=$(/opt/cjdns/publictoip6 "$peer")
+	ipv6short=$(echo $ipv6address | awk -F ":" '{ print $NF }')
+	echo "\"$ipv6address\": {"
+	echo "\"node\": \"$ipv6short\""
+	if [ $peercount -lt $tpeers ] ; then
+		echo "},"
+	else
+		echo "}"
+	fi
+	let peercount=peercount+1	
+done
+echo "}"
+echo "}"
