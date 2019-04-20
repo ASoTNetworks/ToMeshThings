@@ -7,19 +7,19 @@ read -a peers <<< `nodejs /opt/cjdns/tools/peerStats 2>/dev/null | awk '{ if ($3
 
 tpeers=${#peers[@]}
 peercount=1
-echo "{"
-echo "\"peers\":{"
+echo -n "{"
+echo -n "\"peers\":{"
 for peer in "${peers[@]}"; do
 	ipv6address=$(/opt/cjdns/publictoip6 "$peer")
 	ipv6short=$(echo $ipv6address | awk -F ":" '{ print $NF }')
-	echo "\"$ipv6address\": {"
-	echo "\"node\": \"$ipv6short\""
+	echo -n "\"$ipv6address\": {"
+	echo -n "\"node\": \"$ipv6short\""
 	if [ $peercount -lt $tpeers ] ; then
-		echo "},"
+		echo -n "},"
 	else
-		echo "}"
+		echo -n "}"
 	fi
 	let peercount=peercount+1	
 done
-echo "}"
-echo "}"
+echo -n "}"
+echo -n "}"
