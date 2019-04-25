@@ -256,13 +256,12 @@ void wifiOnDisconnect(){
     for (int i = 0; i < 32; ++i){
       essid += char(EEPROM.read(i));
     }
-    analogWrite(LED_BUILTIN, 0);
+
     // get password from eeprom
     String epasswd = "";
     for (int i = 32; i < 96; ++i){
       epasswd += char(EEPROM.read(i));
     }
-    analogWrite(LED_BUILTIN, 0);
     
     // defines for wifi client
     Serial.print("WiFi connecting to: ");
