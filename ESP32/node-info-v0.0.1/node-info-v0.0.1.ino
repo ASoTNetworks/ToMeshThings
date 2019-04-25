@@ -10,6 +10,9 @@
 #include <EEPROM.h>
 #include <analogWrite.h> //https://github.com/ERROPiX/ESP32_AnalogWrite
 
+// serial config
+#define baudrate 115200
+
 // OLED config
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 
@@ -72,7 +75,7 @@ NTPClient timeClient(ntpUDP, NTP_ADDRESS, NTP_OFFSET, NTP_INTERVAL);
 
 void setup(){
     // init the serial console
-    Serial.begin(115200);
+    Serial.begin(baudrate);
 
     // init the EEPROM
     EEPROM.begin(512);
@@ -83,7 +86,7 @@ void setup(){
     u8x8.setContrast(displayContrast);
 
     // init GPIOs
-    pinMode(25, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
     pinMode(0, INPUT);
     
     // prompt for program mode
@@ -107,9 +110,9 @@ void setup(){
     for (int i = 32; i < 96; ++i){
       epasswd += char(EEPROM.read(i));
     }
-
+    
     // check if values are blank if it is go into programming mode
-    if ((essid == "") || (epasswd == "")) {
+    if (essid == "") {
       forceprg = 1;
     }
     // go into programming mode when PRG button is pressed.
@@ -118,7 +121,7 @@ void setup(){
       Serial.println("Entered Programming Mode");
       // strobe LED
       analogWriteFrequency(10);
-      analogWrite(LED_BUILTIN, 15);
+      analogWrite(LED_BUILTIN, 150);
 
       // print programming mode on OLED
       u8x8.clear();
@@ -135,7 +138,7 @@ void setup(){
       u8x8.setCursor(0, 6);
       u8x8.printf("Baud rate");
       u8x8.setCursor(0, 7);
-      u8x8.printf("115200");
+      u8x8.printf("%d", baudrate);
 
       // clear EEPROM
       Serial.println("Clearing EEPROM...");
@@ -155,7 +158,7 @@ void setup(){
 
       // ask password
       String qpasswd;
-      qpasswd = WaitForInput("Please enter your password");
+      qpasswd = WaitForInput("Please enter your password, leave null for opened network (control-@ in terminal)");
       Serial.println("password stored");
 
       // write data to EEPROM
@@ -185,7 +188,15 @@ void setup(){
     WiFi.disconnect(true);
     WiFi.onEvent(WiFiEvent);
     WiFi.mode(WIFI_MODE_STA);
-    WiFi.begin(essid.c_str(), epasswd.c_str());
+    // check if password is set if not don't use encryption
+    if (epasswd == ""){
+      Serial.println("Opened WiFi");
+      WiFi.begin(essid.c_str(), epasswd.c_str());
+    }
+    else{
+      Serial.println("WPA2 WiFi");
+      WiFi.begin(essid.c_str(), epasswd.c_str());
+    }
     mac=WiFi.macAddress();
 
     // start NTP client
@@ -245,11 +256,14 @@ void wifiOnDisconnect(){
     for (int i = 0; i < 32; ++i){
       essid += char(EEPROM.read(i));
     }
+    analogWrite(LED_BUILTIN, 0);
     // get password from eeprom
     String epasswd = "";
     for (int i = 32; i < 96; ++i){
       epasswd += char(EEPROM.read(i));
     }
+    analogWrite(LED_BUILTIN, 0);
+    
     // defines for wifi client
     Serial.print("WiFi connecting to: ");
     Serial.println(essid.c_str());
